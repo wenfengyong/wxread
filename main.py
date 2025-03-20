@@ -1,4 +1,5 @@
-import os
+# main.py 主逻辑：包括字段拼接、模拟请求
+import re
 import json
 import time
 import random
@@ -7,23 +8,11 @@ import hashlib
 import requests
 import urllib.parse
 from push import push
-from capture import headers as local_headers, cookies as local_cookies, data
+from config import data, headers, cookies, READ_NUM, PUSH_METHOD
 
 # 配置日志格式
-logging.basicConfig(level=logging.INFO,format='%(asctime)s - %(levelname)-8s - %(message)s',handlers=[logging.StreamHandler()])
 logger = logging.getLogger(__name__)
-
-# github action部署用
-# 从环境变量获取 headers、cookies等值(如果不存在使用默认本地值)
-# 每一次代表30秒，比如你想刷1个小时这里填120，你只需要签到这里填2次
-env_num = os.getenv('READ_NUM')
-env_method = os.getenv('PUSH_METHOD')
-env_headers = os.getenv('WXREAD_HEADERS')
-env_cookies = os.getenv('WXREAD_COOKIES')
-
-number = int(env_num) if env_num not in (None, '') else 120
-headers = json.loads(json.dumps(eval(env_headers))) if env_headers else local_headers
-cookies = json.loads(json.dumps(eval(env_cookies))) if env_cookies else local_cookies
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)-8s - %(message)s')
 
 # 加密盐及其它默认值
 KEY = "3c5c8717f3daf09iop3423zafeqoi"
@@ -33,10 +22,12 @@ RENEW_URL = "https://weread.qq.com/web/login/renewal"
 
 
 def encode_data(data):
+    """数据编码"""
     return '&'.join(f"{k}={urllib.parse.quote(str(data[k]), safe='')}" for k in sorted(data.keys()))
 
 
 def cal_hash(input_string):
+    """计算哈希值"""
     _7032f5 = 0x15051505
     _cc1055 = _7032f5
     length = len(input_string)
@@ -51,6 +42,7 @@ def cal_hash(input_string):
 
 
 def get_wr_skey():
+    """刷新cookie密钥"""
     response = requests.post(RENEW_URL, headers=headers, cookies=cookies,
                              data=json.dumps(COOKIE_DATA, separators=(',', ':')))
     for cookie in response.headers.get('Set-Cookie', '').split(';'):
@@ -60,7 +52,7 @@ def get_wr_skey():
 
 
 index = 1
-while index <= number:
+while index <= READ_NUM:
     data['ct'] = int(time.time())
     data['ts'] = int(time.time() * 1000)
     data['rn'] = random.randint(0, 1000)
@@ -74,7 +66,7 @@ while index <= number:
     if 'succ' in resData:
         index += 1
         time.sleep(30)
-        logging.info(f"✅ 阅读成功，阅读进度：{(index-1) * 0.5} 分钟")
+        logging.info(f"✅ 阅读成功，阅读进度：{(index - 1) * 0.5} 分钟")
 
     else:
         logging.warning("❌ cookie 已过期，尝试刷新...")
@@ -84,13 +76,14 @@ while index <= number:
             logging.info(f"✅ 密钥刷新成功，新密钥：{new_skey}")
             logging.info(f"🔄 重新本次阅读。")
         else:
-            logging.error("❌ 无法获取新密钥，终止运行。")
-            push("❌ 无法获取新密钥，终止运行。", env_method)
-            raise Exception("❌ 无法获取新密钥，终止运行。")
+            ERROR_CODE = "❌ 无法获取新密钥或者WXREAD_CURL_BASH配置有误，终止运行。"
+            logging.error(ERROR_CODE)
+            push(ERROR_CODE, PUSH_METHOD)
+            raise Exception(ERROR_CODE)
     data.pop('s')
 
 logging.info("🎉 阅读脚本已完成！")
 
-if env_method not in (None, ''):
+if PUSH_METHOD not in (None, ''):
     logging.info("⏱️ 开始推送...")
-    push(f"🎉 微信读书自动阅读完成！\n⏱️ 阅读时长：{(index-1)*0.5}分钟。", env_method)
+    push(f"🎉 微信读书自动阅读完成！\n⏱️ 阅读时长：{(index - 1) * 0.5}分钟。", PUSH_METHOD)
