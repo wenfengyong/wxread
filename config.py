@@ -1,14 +1,35 @@
 # config.py 自定义配置,包括阅读次数、推送token的填写
 import os
 import re
+import random
 
 """
 可修改区域
 默认使用本地值如果不存在从环境变量中获取值
 """
 
-# 阅读次数 默认40次/20分钟
-READ_NUM = int(os.getenv('READ_NUM') or 40)
+
+def _resolve_read_num():
+    """优先从 READ_NUM_RANGE 区间值（如 "10,50"）中随机选取；
+    未设置或格式非法时回退到 READ_NUM，默认 40 次/20 分钟。"""
+    range_str = os.getenv('READ_NUM_RANGE', '').strip()
+    if range_str:
+        try:
+            parts = [int(p.strip()) for p in range_str.split(',') if p.strip()]
+        except ValueError:
+            parts = []
+        if len(parts) == 1:
+            return parts[0]
+        if len(parts) >= 2:
+            lo, hi = min(parts[0], parts[1]), max(parts[0], parts[1])
+            if lo < 0:
+                lo = 0
+            return random.randint(lo, hi)
+    return int(os.getenv('READ_NUM') or 40)
+
+
+# 阅读次数：可通过 READ_NUM_RANGE 区间值（如 "10,50"）随机选取，未设置时使用 READ_NUM，默认 40
+READ_NUM = _resolve_read_num()
 # 需要推送时可选，可选pushplus、wxpusher、telegram
 PUSH_METHOD = "" or os.getenv('PUSH_METHOD')
 # pushplus推送时需填

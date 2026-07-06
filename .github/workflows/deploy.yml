@@ -50,7 +50,8 @@ jobs:
         TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
         TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
         SERVERCHAN_SPT:  ${{ secrets.SERVERCHAN_SPT }}
-        READ_NUM: ${{ vars.READ_NUM }}  # 使用 Repository Variables
+        READ_NUM: ${{ vars.READ_NUM }}  # 使用 Repository Variables（固定次数，向后兼容）
+        READ_NUM_RANGE: ${{ vars.READ_NUM_RANGE }}  # 区间值如 "10,50"，每次运行随机选取，优先于 READ_NUM
 
       run: |
         python main.py
